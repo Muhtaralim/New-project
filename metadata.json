@@ -1,0 +1,6 @@
+{
+  "name": "NeuroFactory AI",
+  "description": "Платформа управления промышленными предприятиями NeuroFactory AI: консоль основателя, реестр заводов, камеры, журнал ошибок и техподдержка.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

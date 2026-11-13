@@ -1,0 +1,493 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net: Default deny all unspecified collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Health check prober endpoint
+    match /test/{docId} {
+      allow read: if true;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Bootstrapped Founder / Super Admin check (prevents email spoofing by requiring email_verified)
+    function isFounderEmail() {
+      return isSignedIn() &&
+             request.auth.token.email == 'dakoasylbek2003@gmail.com' &&
+             request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        isFounderEmail()
+      );
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidAdminUser(data) {
+      return data.uid is string && isValidId(data.uid) &&
+             data.email is string && data.email.size() >= 3 && data.email.size() <= 120 &&
+             data.role in ['founder', 'admin'] &&
+             data.createdAt is string && data.createdAt.size() <= 64 &&
+             (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 100));
+    }
+
+    function isValidFactoryProfile(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.factoryName is string && data.factoryName.size() >= 2 && data.factoryName.size() <= 120 &&
+             data.region is string && data.region.size() >= 2 && data.region.size() <= 80 &&
+             (!('email' in data) || (data.email is string && data.email.size() <= 120)) &&
+             (!('emailVerified' in data) || (data.emailVerified is bool)) &&
+             (!('industrySector' in data) || (data.industrySector is string && data.industrySector.size() <= 60)) &&
+             (!('contactPerson' in data) || (data.contactPerson is string && data.contactPerson.size() <= 100)) &&
+             (!('contactPhone' in data) || (data.contactPhone is string && data.contactPhone.size() <= 32)) &&
+             (!('plan' in data) || (data.plan in ['trial', 'pro', 'enterprise'])) &&
+             (!('accountStatus' in data) || (data.accountStatus in ['active', 'pending', 'suspended'])) &&
+             (!('billingStatus' in data) || (data.billingStatus in ['paid', 'pending', 'overdue'])) &&
+             (!('camerasCount' in data) || (data.camerasCount is number && data.camerasCount >= 0)) &&
+             (!('sensorsCount' in data) || (data.sensorsCount is number && data.sensorsCount >= 0)) &&
+             (!('machinesCount' in data) || (data.machinesCount is number && data.machinesCount >= 0)) &&
+             (!('employeesCount' in data) || (data.employeesCount is number && data.employeesCount >= 0)) &&
+             (!('errorsCount' in data) || (data.errorsCount is number && data.errorsCount >= 0)) &&
+             (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() <= 64)) &&
+             (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 64));
+    }
+
+    function isValidEmployee(data) {
+      return data.id is string && isValidId(data.id) &&
+             data.factoryId is string && data.factoryId.size() <= 128 &&
+             data.fullName is string && data.fullName.size() >= 2 && data.fullName.size() <= 120 &&
+             data.specialty is string && data.specialty.size() >= 2 && data.specialty.size() <= 80 &&
+             data.role in ['worker', 'specialist'] &&
+             data.accessLevel in ['none', 'full'] &&
+             ((data.role == 'worker' && data.accessLevel == 'none') ||
+              (data.role == 'specialist' && data.accessLevel == 'full')) &&
+             data.department is string && data.department.size() >= 1 && data.department.size() <= 80 &&
+             data.violationsCount is number && data.violationsCount >= 0 && data.violationsCount <= 10000 &&
+             data.createdAt is string && data.createdAt.size() <= 64 &&
+             (!('email' in data) || (data.email is string && data.email.size() <= 120)) &&
+             (!('generatedPassword' in data) || (data.generatedPassword is string && data.generatedPassword.size() <= 64)) &&
+             (!('authProvisioned' in data) || (data.authProvisioned is bool)) &&
+             (!('lastViolationSummary' in data) || (data.lastViolationSummary is string && data.lastViolationSummary.size() <= 240)) &&
+             (!('lastViolationAt' in data) || (data.lastViolationAt is string && data.lastViolationAt.size() <= 64));
+    }
+
+    function isValidNotification(data) {
+      return data.id is string && isValidId(data.id) &&
+             data.factoryId is string && data.factoryId.size() <= 128 &&
+             data.title is string && data.title.size() >= 2 && data.title.size() <= 140 &&
+             data.message is string && data.message.size() >= 2 && data.message.size() <= 400 &&
+             data.severity in ['critical', 'warning', 'info'] &&
+             data.sourceModule in ['SafeVision', 'EcoPredict', 'FailPredict'] &&
+             data.recipientCount is number && data.recipientCount >= 0 && data.recipientCount <= 500 &&
+             data.recipientNames is string && data.recipientNames.size() <= 300 &&
+             data.read is bool &&
+             data.createdAt is string && data.createdAt.size() <= 64 &&
+             (!('violatorId' in data) || (data.violatorId is string && data.violatorId.size() <= 128)) &&
+             (!('violatorName' in data) || (data.violatorName is string && data.violatorName.size() <= 120));
+    }
+
+    function isValidCamera(data) {
+      return data.id is string && isValidId(data.id) &&
+             data.factoryId is string && data.factoryId.size() <= 128 &&
+             data.name is string && data.name.size() >= 2 && data.name.size() <= 120 &&
+             data.area is string && data.area.size() >= 1 && data.area.size() <= 80 &&
+             (!('ipAddress' in data) || (data.ipAddress is string && data.ipAddress.size() <= 160)) &&
+             (!('streamUrl' in data) || (data.streamUrl is string && data.streamUrl.size() <= 240)) &&
+             (!('connectionMethod' in data) || (data.connectionMethod in ['ip', 'qr', 'manual', 'demo'])) &&
+             data.fps is number && data.fps >= 1 && data.fps <= 120 &&
+             data.resolution is string && data.resolution.size() <= 32 &&
+             data.status in ['active', 'offline', 'calibrating'] &&
+             data.currentDetections is map &&
+             data.currentDetections.helmetsOk is number &&
+             data.currentDetections.helmetsMissing is number &&
+             data.currentDetections.vestsOk is number &&
+             data.currentDetections.vestsMissing is number &&
+             data.currentDetections.gogglesOk is number &&
+             data.currentDetections.gogglesMissing is number &&
+             data.currentDetections.inHazardZone is number;
+    }
+
+    function isValidEcoSensor(data) {
+      return data.id is string && isValidId(data.id) &&
+             data.factoryId is string && data.factoryId.size() <= 128 &&
+             data.name is string && data.name.size() >= 2 && data.name.size() <= 120 &&
+             data.code in ['CO', 'NO2', 'SO2', 'PM2_5', 'PM10', 'NOISE', 'DUST', 'TEMP'] &&
+             data.unit is string && data.unit.size() <= 24 &&
+             (!('ipAddress' in data) || (data.ipAddress is string && data.ipAddress.size() <= 160)) &&
+             (!('connectionMethod' in data) || (data.connectionMethod in ['ip', 'qr', 'manual', 'demo'])) &&
+             data.currentValue is number && data.currentValue >= 0 &&
+             data.thresholdWarning is number && data.thresholdWarning >= 0 &&
+             data.thresholdCritical is number && data.thresholdCritical > 0 &&
+             data.area is string && data.area.size() >= 1 && data.area.size() <= 80 &&
+             data.status in ['normal', 'warning', 'critical'] &&
+             data.trend in ['up', 'down', 'stable'] &&
+             data.lastUpdated is string && data.lastUpdated.size() <= 64;
+    }
+
+    function isValidMachine(data) {
+      return data.id is string && isValidId(data.id) &&
+             data.factoryId is string && data.factoryId.size() <= 128 &&
+             data.name is string && data.name.size() >= 2 && data.name.size() <= 120 &&
+             data.type is string && data.type.size() >= 2 && data.type.size() <= 100 &&
+             data.area is string && data.area.size() >= 1 && data.area.size() <= 80 &&
+             (!('ipAddress' in data) || (data.ipAddress is string && data.ipAddress.size() <= 160)) &&
+             (!('connectionMethod' in data) || (data.connectionMethod in ['ip', 'qr', 'manual', 'demo'])) &&
+             data.installedYear is number && data.installedYear >= 1950 && data.installedYear <= 2100 &&
+             data.temperatureC is number &&
+             data.temperatureBaselineC is number &&
+             data.vibrationRmsMmS is number && data.vibrationRmsMmS >= 0 &&
+             data.vibrationBaselineMmS is number && data.vibrationBaselineMmS >= 0 &&
+             data.peakFrequencyHz is number &&
+             data.riskStatus in ['low', 'medium', 'high', 'critical'] &&
+             data.failureProbabilityPercent is number && data.failureProbabilityPercent >= 0 && data.failureProbabilityPercent <= 100 &&
+             data.remainingUsefulLifeHours is number && data.remainingUsefulLifeHours >= 0 &&
+             data.recommendations is map &&
+             data.lastInspectionDate is string && data.lastInspectionDate.size() <= 32 &&
+             data.telemetryHistory is list && data.telemetryHistory.size() <= 24;
+    }
+
+    function isValidDeviceError(data) {
+      return data.id is string && isValidId(data.id) &&
+             data.factoryId is string && data.factoryId.size() <= 128 &&
+             data.factoryName is string && data.factoryName.size() >= 1 && data.factoryName.size() <= 120 &&
+             data.deviceId is string && data.deviceId.size() <= 128 &&
+             data.deviceName is string && data.deviceName.size() >= 1 && data.deviceName.size() <= 120 &&
+             data.deviceType in ['camera', 'sensor', 'machine', 'system'] &&
+             (!('ipAddress' in data) || (data.ipAddress is string && data.ipAddress.size() <= 160)) &&
+             data.module in ['SafeVision', 'EcoPredict', 'FailPredict', 'System'] &&
+             data.errorCode is string && data.errorCode.size() >= 2 && data.errorCode.size() <= 48 &&
+             data.message is string && data.message.size() >= 2 && data.message.size() <= 400 &&
+             data.severity in ['critical', 'warning', 'info'] &&
+             data.status in ['open', 'investigating', 'resolved'] &&
+             (!('resolutionNote' in data) || (data.resolutionNote is string && data.resolutionNote.size() <= 300)) &&
+             (!('resolvedAt' in data) || (data.resolvedAt is string && data.resolvedAt.size() <= 64)) &&
+             data.createdAt is string && data.createdAt.size() <= 64;
+    }
+
+    function isValidSupportTicket(data) {
+      return data.id is string && isValidId(data.id) &&
+             data.factoryId is string && data.factoryId.size() <= 128 &&
+             data.factoryName is string && data.factoryName.size() >= 1 && data.factoryName.size() <= 120 &&
+             (!('reporterEmail' in data) || (data.reporterEmail is string && data.reporterEmail.size() <= 120)) &&
+             data.subject is string && data.subject.size() >= 2 && data.subject.size() <= 160 &&
+             data.category in ['cameras', 'sensors', 'employees', 'billing', 'bug', 'other'] &&
+             data.priority in ['urgent', 'high', 'normal', 'low'] &&
+             data.status in ['open', 'in_progress', 'resolved', 'closed'] &&
+             data.description is string && data.description.size() >= 2 && data.description.size() <= 1000 &&
+             data.repliesCount is number && data.repliesCount >= 0 && data.repliesCount <= 500 &&
+             (!('lastMessagePreview' in data) || (data.lastMessagePreview is string && data.lastMessagePreview.size() <= 300)) &&
+             data.createdAt is string && data.createdAt.size() <= 64 &&
+             data.updatedAt is string && data.updatedAt.size() <= 64;
+    }
+
+    function isValidSupportMessage(data) {
+      return data.id is string && isValidId(data.id) &&
+             data.ticketId is string && isValidId(data.ticketId) &&
+             data.factoryId is string && data.factoryId.size() <= 128 &&
+             data.senderEmail is string && data.senderEmail.size() <= 120 &&
+             data.senderRole in ['founder', 'factory'] &&
+             data.text is string && data.text.size() >= 1 && data.text.size() <= 1000 &&
+             data.createdAt is string && data.createdAt.size() <= 64;
+    }
+
+    function isValidAuditLog(data) {
+      return data.id is string && isValidId(data.id) &&
+             data.actorEmail is string && data.actorEmail.size() <= 120 &&
+             data.action is string && data.action.size() >= 2 && data.action.size() <= 120 &&
+             data.targetType in ['factory', 'ticket', 'error', 'settings', 'admin'] &&
+             data.targetName is string && data.targetName.size() <= 140 &&
+             data.details is string && data.details.size() <= 400 &&
+             data.createdAt is string && data.createdAt.size() <= 64;
+    }
+
+    function isValidPlatformSettings(data) {
+      return data.id is string && isValidId(data.id) &&
+             data.platformName is string && data.platformName.size() >= 2 && data.platformName.size() <= 100 &&
+             data.supportEmail is string && data.supportEmail.size() <= 120 &&
+             data.maintenanceMode is bool &&
+             data.trialCameraLimit is number && data.trialCameraLimit >= 1 && data.trialCameraLimit <= 500 &&
+             data.trialEmployeeLimit is number && data.trialEmployeeLimit >= 1 && data.trialEmployeeLimit <= 5000 &&
+             data.aiModelVersion is string && data.aiModelVersion.size() <= 80 &&
+             data.autoErrorAlerts is bool &&
+             data.updatedAt is string && data.updatedAt.size() <= 64;
+    }
+
+    // Platform Admins / Founder Registry
+    match /admins/{adminId} {
+      allow get: if isValidId(adminId) && (isOwner(adminId) || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isValidId(adminId) &&
+                       isValidAdminUser(incoming()) &&
+                       incoming().uid == adminId &&
+                       (isAdmin() || (isOwner(adminId) && isFounderEmail()));
+      allow update: if isAdmin() && isValidId(adminId) && isValidAdminUser(incoming()) && incoming().uid == existing().uid;
+      allow delete: if isAdmin() && isValidId(adminId) && adminId != request.auth.uid;
+    }
+
+    // Registered Factories Collection
+    match /factories/{factoryId} {
+      allow get: if isValidId(factoryId) && (isOwner(factoryId) || isAdmin());
+      allow list: if isAdmin();
+
+      allow create: if isValidId(factoryId) &&
+                       isValidFactoryProfile(incoming()) &&
+                       (isOwner(factoryId) || isAdmin()) &&
+                       incoming().userId == factoryId &&
+                       incoming().keys().hasAll(['userId', 'factoryName', 'region']) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'email', 'emailVerified', 'factoryName', 'region',
+                         'industrySector', 'contactPerson', 'contactPhone',
+                         'plan', 'accountStatus', 'billingStatus',
+                         'camerasCount', 'sensorsCount', 'machinesCount', 'employeesCount', 'errorsCount',
+                         'createdAt', 'updatedAt'
+                       ]);
+
+      allow update: if isValidId(factoryId) &&
+                       isValidFactoryProfile(incoming()) &&
+                       incoming().userId == existing().userId && (
+                         isAdmin() ||
+                         (
+                           isOwner(factoryId) &&
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'factoryName', 'region', 'emailVerified', 'industrySector',
+                             'contactPerson', 'contactPhone',
+                             'camerasCount', 'sensorsCount', 'machinesCount', 'employeesCount', 'errorsCount',
+                             'updatedAt'
+                           ])
+                         )
+                       );
+
+      allow delete: if isValidId(factoryId) && (isOwner(factoryId) || isAdmin());
+
+      // Subcollection: Factory Employees & Access Roles
+      match /employees/{employeeId} {
+        allow get: if isValidId(factoryId) && isValidId(employeeId) && (isOwner(factoryId) || isAdmin());
+        allow list: if isAdmin() || (isOwner(factoryId) && resource.data.factoryId == request.auth.uid);
+
+        allow create: if isValidId(factoryId) &&
+                         isValidId(employeeId) &&
+                         (isOwner(factoryId) || isAdmin()) &&
+                         isValidEmployee(incoming()) &&
+                         incoming().id == employeeId &&
+                         incoming().factoryId == factoryId &&
+                         incoming().keys().hasAll(['id', 'factoryId', 'fullName', 'specialty', 'role', 'accessLevel', 'department', 'violationsCount', 'createdAt']) &&
+                         incoming().keys().hasOnly(['id', 'factoryId', 'fullName', 'specialty', 'role', 'accessLevel', 'department', 'email', 'generatedPassword', 'authProvisioned', 'violationsCount', 'lastViolationSummary', 'lastViolationAt', 'createdAt']) &&
+                         exists(/databases/$(database)/documents/factories/$(factoryId));
+
+        allow update: if isValidId(factoryId) &&
+                         isValidId(employeeId) &&
+                         (isOwner(factoryId) || isAdmin()) &&
+                         isValidEmployee(incoming()) &&
+                         incoming().id == existing().id &&
+                         incoming().factoryId == existing().factoryId &&
+                         incoming().createdAt == existing().createdAt &&
+                         (
+                           isAdmin() ||
+                           incoming().diff(existing()).affectedKeys().hasOnly(['violationsCount', 'lastViolationSummary', 'lastViolationAt']) ||
+                           incoming().diff(existing()).affectedKeys().hasOnly(['specialty', 'role', 'accessLevel', 'department', 'fullName'])
+                         );
+
+        allow delete: if isValidId(factoryId) && isValidId(employeeId) && (isOwner(factoryId) || isAdmin());
+      }
+
+      // Subcollection: Specialist Notifications
+      match /notifications/{notificationId} {
+        allow get: if isValidId(factoryId) && isValidId(notificationId) && (isOwner(factoryId) || isAdmin());
+        allow list: if isAdmin() || (isOwner(factoryId) && resource.data.factoryId == request.auth.uid);
+
+        allow create: if isValidId(factoryId) &&
+                         isValidId(notificationId) &&
+                         (isOwner(factoryId) || isAdmin()) &&
+                         isValidNotification(incoming()) &&
+                         incoming().id == notificationId &&
+                         incoming().factoryId == factoryId &&
+                         incoming().keys().hasAll(['id', 'factoryId', 'title', 'message', 'severity', 'sourceModule', 'recipientCount', 'recipientNames', 'read', 'createdAt']) &&
+                         incoming().keys().hasOnly(['id', 'factoryId', 'title', 'message', 'severity', 'sourceModule', 'violatorId', 'violatorName', 'recipientCount', 'recipientNames', 'read', 'createdAt']) &&
+                         exists(/databases/$(database)/documents/factories/$(factoryId));
+
+        allow update: if isValidId(factoryId) &&
+                         isValidId(notificationId) &&
+                         (isOwner(factoryId) || isAdmin()) &&
+                         isValidNotification(incoming()) &&
+                         incoming().id == existing().id &&
+                         incoming().factoryId == existing().factoryId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['read']);
+
+        allow delete: if isValidId(factoryId) && isValidId(notificationId) && (isOwner(factoryId) || isAdmin());
+      }
+
+      // Subcollection: Connected Cameras
+      match /cameras/{cameraId} {
+        allow get: if isValidId(factoryId) && isValidId(cameraId) && (isOwner(factoryId) || isAdmin());
+        allow list: if isAdmin() || (isOwner(factoryId) && resource.data.factoryId == request.auth.uid);
+
+        allow create: if isValidId(factoryId) &&
+                         isValidId(cameraId) &&
+                         (isOwner(factoryId) || isAdmin()) &&
+                         isValidCamera(incoming()) &&
+                         incoming().id == cameraId &&
+                         incoming().factoryId == factoryId &&
+                         exists(/databases/$(database)/documents/factories/$(factoryId));
+
+        allow update: if isValidId(factoryId) &&
+                         isValidId(cameraId) &&
+                         (isOwner(factoryId) || isAdmin()) &&
+                         isValidCamera(incoming()) &&
+                         incoming().id == existing().id &&
+                         incoming().factoryId == existing().factoryId;
+
+        allow delete: if isValidId(factoryId) && isValidId(cameraId) && (isOwner(factoryId) || isAdmin());
+      }
+
+      // Subcollection: Connected Eco Sensors
+      match /sensors/{sensorId} {
+        allow get: if isValidId(factoryId) && isValidId(sensorId) && (isOwner(factoryId) || isAdmin());
+        allow list: if isAdmin() || (isOwner(factoryId) && resource.data.factoryId == request.auth.uid);
+
+        allow create: if isValidId(factoryId) &&
+                         isValidId(sensorId) &&
+                         (isOwner(factoryId) || isAdmin()) &&
+                         isValidEcoSensor(incoming()) &&
+                         incoming().id == sensorId &&
+                         incoming().factoryId == factoryId &&
+                         exists(/databases/$(database)/documents/factories/$(factoryId));
+
+        allow update: if isValidId(factoryId) &&
+                         isValidId(sensorId) &&
+                         (isOwner(factoryId) || isAdmin()) &&
+                         isValidEcoSensor(incoming()) &&
+                         incoming().id == existing().id &&
+                         incoming().factoryId == existing().factoryId;
+
+        allow delete: if isValidId(factoryId) && isValidId(sensorId) && (isOwner(factoryId) || isAdmin());
+      }
+
+      // Subcollection: Connected Equipment Machines
+      match /machines/{machineId} {
+        allow get: if isValidId(factoryId) && isValidId(machineId) && (isOwner(factoryId) || isAdmin());
+        allow list: if isAdmin() || (isOwner(factoryId) && resource.data.factoryId == request.auth.uid);
+
+        allow create: if isValidId(factoryId) &&
+                         isValidId(machineId) &&
+                         (isOwner(factoryId) || isAdmin()) &&
+                         isValidMachine(incoming()) &&
+                         incoming().id == machineId &&
+                         incoming().factoryId == factoryId &&
+                         exists(/databases/$(database)/documents/factories/$(factoryId));
+
+        allow update: if isValidId(factoryId) &&
+                         isValidId(machineId) &&
+                         (isOwner(factoryId) || isAdmin()) &&
+                         isValidMachine(incoming()) &&
+                         incoming().id == existing().id &&
+                         incoming().factoryId == existing().factoryId;
+
+        allow delete: if isValidId(factoryId) && isValidId(machineId) && (isOwner(factoryId) || isAdmin());
+      }
+    }
+
+    // Cross-factory Device & AI Error Logs
+    match /device_errors/{errorId} {
+      allow get: if isValidId(errorId) && (isAdmin() || (isSignedIn() && existing().factoryId == request.auth.uid));
+      allow list: if isAdmin() || (isSignedIn() && resource.data.factoryId == request.auth.uid);
+
+      allow create: if isValidId(errorId) &&
+                       isValidDeviceError(incoming()) &&
+                       incoming().id == errorId &&
+                       (isAdmin() || (isSignedIn() && incoming().factoryId == request.auth.uid));
+
+      allow update: if isAdmin() &&
+                       isValidId(errorId) &&
+                       isValidDeviceError(incoming()) &&
+                       incoming().id == existing().id &&
+                       incoming().factoryId == existing().factoryId &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['status', 'resolutionNote', 'resolvedAt']);
+
+      allow delete: if isAdmin() && isValidId(errorId);
+    }
+
+    // Tech Support Tickets (Helpdesk)
+    match /support_tickets/{ticketId} {
+      allow get: if isValidId(ticketId) && (isAdmin() || (isSignedIn() && existing().factoryId == request.auth.uid));
+      allow list: if isAdmin() || (isSignedIn() && resource.data.factoryId == request.auth.uid);
+
+      allow create: if isValidId(ticketId) &&
+                       isValidSupportTicket(incoming()) &&
+                       incoming().id == ticketId &&
+                       (isAdmin() || (isSignedIn() && incoming().factoryId == request.auth.uid));
+
+      allow update: if isValidId(ticketId) &&
+                       isValidSupportTicket(incoming()) &&
+                       incoming().id == existing().id &&
+                       incoming().factoryId == existing().factoryId && (
+                         isAdmin() ||
+                         (
+                           isSignedIn() &&
+                           existing().factoryId == request.auth.uid &&
+                           incoming().diff(existing()).affectedKeys().hasOnly(['repliesCount', 'lastMessagePreview', 'updatedAt', 'status'])
+                         )
+                       );
+
+      allow delete: if isAdmin() && isValidId(ticketId);
+
+      // Subcollection: Ticket Conversation Thread
+      match /messages/{messageId} {
+        allow get: if isValidId(ticketId) && isValidId(messageId) && (isAdmin() || (isSignedIn() && existing().factoryId == request.auth.uid));
+        allow list: if isAdmin() || (isSignedIn() && resource.data.factoryId == request.auth.uid);
+
+        allow create: if isValidId(ticketId) &&
+                         isValidId(messageId) &&
+                         isValidSupportMessage(incoming()) &&
+                         incoming().id == messageId &&
+                         incoming().ticketId == ticketId &&
+                         (isAdmin() || (isSignedIn() && incoming().factoryId == request.auth.uid && incoming().senderRole == 'factory')) &&
+                         exists(/databases/$(database)/documents/support_tickets/$(ticketId));
+
+        allow update: if false;
+        allow delete: if isAdmin() && isValidId(ticketId) && isValidId(messageId);
+      }
+    }
+
+    // Founder Audit Logs
+    match /audit_logs/{logId} {
+      allow get: if isAdmin() && isValidId(logId);
+      allow list: if isAdmin();
+      allow create: if isAdmin() && isValidId(logId) && isValidAuditLog(incoming()) && incoming().id == logId;
+      allow update: if false;
+      allow delete: if isAdmin() && isValidId(logId);
+    }
+
+    // Global Platform Settings
+    match /platform_settings/{settingId} {
+      allow get: if isValidId(settingId) && isSignedIn();
+      allow list: if isAdmin();
+      allow create, update: if isAdmin() && isValidId(settingId) && isValidPlatformSettings(incoming()) && incoming().id == settingId;
+      allow delete: if isAdmin() && isValidId(settingId);
+    }
+  }
+}

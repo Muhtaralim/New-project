@@ -1,0 +1,418 @@
+{
+  "entities": {
+    "AdminUser": {
+      "title": "AdminUser",
+      "description": "Platform founder and authorized super-administrators.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 120 },
+        "displayName": { "type": "string", "maxLength": 100 },
+        "role": { "type": "string", "enum": ["founder", "admin"] },
+        "createdAt": { "type": "string", "format": "date-time", "maxLength": 64 }
+      },
+      "required": ["uid", "email", "role", "createdAt"]
+    },
+    "FactoryProfile": {
+      "title": "FactoryProfile",
+      "description": "Registered industrial enterprise profile with SaaS plan, status, telemetry counters, and contact information.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the factory administrator",
+          "maxLength": 128
+        },
+        "email": {
+          "type": "string",
+          "description": "Factory lead engineer email address",
+          "maxLength": 120
+        },
+        "emailVerified": {
+          "type": "boolean",
+          "description": "Whether user email has been verified"
+        },
+        "factoryName": {
+          "type": "string",
+          "description": "Official name of the industrial facility or plant",
+          "minLength": 2,
+          "maxLength": 120
+        },
+        "region": {
+          "type": "string",
+          "description": "Administrative region or city in Kazakhstan",
+          "minLength": 2,
+          "maxLength": 80
+        },
+        "industrySector": {
+          "type": "string",
+          "description": "Industry classification",
+          "maxLength": 60
+        },
+        "contactPerson": {
+          "type": "string",
+          "description": "Lead engineer or safety director name",
+          "maxLength": 100
+        },
+        "contactPhone": {
+          "type": "string",
+          "description": "Emergency dispatch phone number",
+          "maxLength": 32
+        },
+        "plan": {
+          "type": "string",
+          "enum": ["trial", "pro", "enterprise"],
+          "description": "Platform subscription tier managed by founder"
+        },
+        "accountStatus": {
+          "type": "string",
+          "enum": ["active", "pending", "suspended"],
+          "description": "Operational account status"
+        },
+        "billingStatus": {
+          "type": "string",
+          "enum": ["paid", "pending", "overdue"],
+          "description": "Subscription billing status"
+        },
+        "camerasCount": { "type": "number" },
+        "sensorsCount": { "type": "number" },
+        "machinesCount": { "type": "number" },
+        "employeesCount": { "type": "number" },
+        "errorsCount": { "type": "number" },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "maxLength": 64
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "maxLength": 64
+        }
+      },
+      "required": ["userId", "factoryName", "region"]
+    },
+    "FactoryEmployee": {
+      "title": "FactoryEmployee",
+      "description": "Factory personnel record tracking specialty, role, credentials, and safety violations.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "factoryId": { "type": "string", "maxLength": 128 },
+        "fullName": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "specialty": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "role": { "type": "string", "enum": ["worker", "specialist"] },
+        "accessLevel": { "type": "string", "enum": ["none", "full"] },
+        "department": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "email": { "type": "string", "maxLength": 120 },
+        "generatedPassword": { "type": "string", "maxLength": 64 },
+        "authProvisioned": { "type": "boolean" },
+        "violationsCount": { "type": "number" },
+        "lastViolationSummary": { "type": "string", "maxLength": 240 },
+        "lastViolationAt": { "type": "string", "format": "date-time", "maxLength": 64 },
+        "createdAt": { "type": "string", "format": "date-time", "maxLength": 64 }
+      },
+      "required": [
+        "id",
+        "factoryId",
+        "fullName",
+        "specialty",
+        "role",
+        "accessLevel",
+        "department",
+        "violationsCount",
+        "createdAt"
+      ]
+    },
+    "SpecialistNotification": {
+      "title": "SpecialistNotification",
+      "description": "Violation and critical anomaly alert delivered to specialists.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "factoryId": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "minLength": 2, "maxLength": 140 },
+        "message": { "type": "string", "minLength": 2, "maxLength": 400 },
+        "severity": { "type": "string", "enum": ["critical", "warning", "info"] },
+        "sourceModule": { "type": "string", "enum": ["SafeVision", "EcoPredict", "FailPredict"] },
+        "violatorId": { "type": "string", "maxLength": 128 },
+        "violatorName": { "type": "string", "maxLength": 120 },
+        "recipientCount": { "type": "number" },
+        "recipientNames": { "type": "string", "maxLength": 300 },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time", "maxLength": 64 }
+      },
+      "required": [
+        "id",
+        "factoryId",
+        "title",
+        "message",
+        "severity",
+        "sourceModule",
+        "recipientCount",
+        "recipientNames",
+        "read",
+        "createdAt"
+      ]
+    },
+    "FactoryCamera": {
+      "title": "FactoryCamera",
+      "description": "Connected IP camera isolated per factory.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "factoryId": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "area": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "ipAddress": { "type": "string", "maxLength": 160 },
+        "streamUrl": { "type": "string", "maxLength": 240 },
+        "connectionMethod": { "type": "string", "enum": ["ip", "qr", "manual", "demo"] },
+        "fps": { "type": "number" },
+        "resolution": { "type": "string", "maxLength": 32 },
+        "status": { "type": "string", "enum": ["active", "offline", "calibrating"] },
+        "createdAt": { "type": "string", "format": "date-time", "maxLength": 64 }
+      },
+      "required": ["id", "factoryId", "name", "area", "fps", "resolution", "status", "createdAt"]
+    },
+    "FactoryEcoSensor": {
+      "title": "FactoryEcoSensor",
+      "description": "Connected environmental gas/dust analyzer sensor isolated per factory.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "factoryId": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "code": { "type": "string", "enum": ["CO", "NO2", "SO2", "PM2_5", "PM10", "NOISE", "DUST", "TEMP"] },
+        "unit": { "type": "string", "maxLength": 24 },
+        "ipAddress": { "type": "string", "maxLength": 160 },
+        "connectionMethod": { "type": "string", "enum": ["ip", "qr", "manual", "demo"] },
+        "currentValue": { "type": "number" },
+        "thresholdWarning": { "type": "number" },
+        "thresholdCritical": { "type": "number" },
+        "area": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "status": { "type": "string", "enum": ["normal", "warning", "critical"] },
+        "trend": { "type": "string", "enum": ["up", "down", "stable"] },
+        "lastUpdated": { "type": "string", "format": "date-time", "maxLength": 64 }
+      },
+      "required": ["id", "factoryId", "name", "code", "unit", "currentValue", "thresholdWarning", "thresholdCritical", "area", "status", "trend", "lastUpdated"]
+    },
+    "FactoryMachine": {
+      "title": "FactoryMachine",
+      "description": "Connected industrial equipment unit isolated per factory.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "factoryId": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "type": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "area": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "ipAddress": { "type": "string", "maxLength": 160 },
+        "connectionMethod": { "type": "string", "enum": ["ip", "qr", "manual", "demo"] },
+        "installedYear": { "type": "number" },
+        "temperatureC": { "type": "number" },
+        "temperatureBaselineC": { "type": "number" },
+        "vibrationRmsMmS": { "type": "number" },
+        "vibrationBaselineMmS": { "type": "number" },
+        "peakFrequencyHz": { "type": "number" },
+        "riskStatus": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+        "failureProbabilityPercent": { "type": "number" },
+        "remainingUsefulLifeHours": { "type": "number" },
+        "hasActiveWorkOrder": { "type": "boolean" },
+        "lastInspectionDate": { "type": "string", "maxLength": 32 }
+      },
+      "required": [
+        "id",
+        "factoryId",
+        "name",
+        "type",
+        "area",
+        "installedYear",
+        "temperatureC",
+        "temperatureBaselineC",
+        "vibrationRmsMmS",
+        "vibrationBaselineMmS",
+        "peakFrequencyHz",
+        "riskStatus",
+        "failureProbabilityPercent",
+        "remainingUsefulLifeHours",
+        "lastInspectionDate"
+      ]
+    },
+    "DeviceErrorLog": {
+      "title": "DeviceErrorLog",
+      "description": "Camera, sensor, and system error events across registered factories.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "factoryId": { "type": "string", "maxLength": 128 },
+        "factoryName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "deviceId": { "type": "string", "maxLength": 128 },
+        "deviceName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "deviceType": { "type": "string", "enum": ["camera", "sensor", "machine", "system"] },
+        "ipAddress": { "type": "string", "maxLength": 160 },
+        "module": { "type": "string", "enum": ["SafeVision", "EcoPredict", "FailPredict", "System"] },
+        "errorCode": { "type": "string", "minLength": 2, "maxLength": 48 },
+        "message": { "type": "string", "minLength": 2, "maxLength": 400 },
+        "severity": { "type": "string", "enum": ["critical", "warning", "info"] },
+        "status": { "type": "string", "enum": ["open", "investigating", "resolved"] },
+        "resolutionNote": { "type": "string", "maxLength": 300 },
+        "resolvedAt": { "type": "string", "format": "date-time", "maxLength": 64 },
+        "createdAt": { "type": "string", "format": "date-time", "maxLength": 64 }
+      },
+      "required": [
+        "id",
+        "factoryId",
+        "factoryName",
+        "deviceId",
+        "deviceName",
+        "deviceType",
+        "module",
+        "errorCode",
+        "message",
+        "severity",
+        "status",
+        "createdAt"
+      ]
+    },
+    "SupportTicket": {
+      "title": "SupportTicket",
+      "description": "Tech support ticket submitted by a factory or created by the platform founder.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "factoryId": { "type": "string", "maxLength": 128 },
+        "factoryName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "reporterEmail": { "type": "string", "maxLength": 120 },
+        "subject": { "type": "string", "minLength": 2, "maxLength": 160 },
+        "category": { "type": "string", "enum": ["cameras", "sensors", "employees", "billing", "bug", "other"] },
+        "priority": { "type": "string", "enum": ["urgent", "high", "normal", "low"] },
+        "status": { "type": "string", "enum": ["open", "in_progress", "resolved", "closed"] },
+        "description": { "type": "string", "minLength": 2, "maxLength": 1000 },
+        "repliesCount": { "type": "number" },
+        "lastMessagePreview": { "type": "string", "maxLength": 300 },
+        "createdAt": { "type": "string", "format": "date-time", "maxLength": 64 },
+        "updatedAt": { "type": "string", "format": "date-time", "maxLength": 64 }
+      },
+      "required": [
+        "id",
+        "factoryId",
+        "factoryName",
+        "subject",
+        "category",
+        "priority",
+        "status",
+        "description",
+        "repliesCount",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "SupportTicketMessage": {
+      "title": "SupportTicketMessage",
+      "description": "Message inside a support ticket conversation thread.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ticketId": { "type": "string", "maxLength": 128 },
+        "factoryId": { "type": "string", "maxLength": 128 },
+        "senderEmail": { "type": "string", "maxLength": 120 },
+        "senderRole": { "type": "string", "enum": ["founder", "factory"] },
+        "text": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "createdAt": { "type": "string", "format": "date-time", "maxLength": 64 }
+      },
+      "required": ["id", "ticketId", "factoryId", "senderEmail", "senderRole", "text", "createdAt"]
+    },
+    "FounderAuditLog": {
+      "title": "FounderAuditLog",
+      "description": "Administrative action audit log for platform governance.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "actorEmail": { "type": "string", "maxLength": 120 },
+        "action": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "targetType": { "type": "string", "enum": ["factory", "ticket", "error", "settings", "admin"] },
+        "targetName": { "type": "string", "maxLength": 140 },
+        "details": { "type": "string", "maxLength": 400 },
+        "createdAt": { "type": "string", "format": "date-time", "maxLength": 64 }
+      },
+      "required": ["id", "actorEmail", "action", "targetType", "targetName", "details", "createdAt"]
+    },
+    "PlatformSettings": {
+      "title": "PlatformSettings",
+      "description": "Global platform configuration managed by the founder.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "platformName": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "supportEmail": { "type": "string", "maxLength": 120 },
+        "maintenanceMode": { "type": "boolean" },
+        "trialCameraLimit": { "type": "number" },
+        "trialEmployeeLimit": { "type": "number" },
+        "aiModelVersion": { "type": "string", "maxLength": 80 },
+        "autoErrorAlerts": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time", "maxLength": 64 }
+      },
+      "required": [
+        "id",
+        "platformName",
+        "supportEmail",
+        "maintenanceMode",
+        "trialCameraLimit",
+        "trialEmployeeLimit",
+        "aiModelVersion",
+        "autoErrorAlerts",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/admins/{adminId}": {
+      "schema": "AdminUser",
+      "description": "Platform founder and super-admin identities"
+    },
+    "/factories/{factoryId}": {
+      "schema": "FactoryProfile",
+      "description": "Stores individual factory profile data and SaaS status"
+    },
+    "/factories/{factoryId}/employees/{employeeId}": {
+      "schema": "FactoryEmployee",
+      "description": "Stores factory personnel by specialty, role, credentials, and violations"
+    },
+    "/factories/{factoryId}/notifications/{notificationId}": {
+      "schema": "SpecialistNotification",
+      "description": "Stores violation and anomaly notifications routed to factory specialists"
+    },
+    "/factories/{factoryId}/cameras/{cameraId}": {
+      "schema": "FactoryCamera",
+      "description": "Stores IP/QR cameras connected by the factory"
+    },
+    "/factories/{factoryId}/sensors/{sensorId}": {
+      "schema": "FactoryEcoSensor",
+      "description": "Stores environmental sensors connected by the factory"
+    },
+    "/factories/{factoryId}/machines/{machineId}": {
+      "schema": "FactoryMachine",
+      "description": "Stores industrial equipment connected by the factory"
+    },
+    "/device_errors/{errorId}": {
+      "schema": "DeviceErrorLog",
+      "description": "Cross-factory device and AI inference error logs monitored by the founder"
+    },
+    "/support_tickets/{ticketId}": {
+      "schema": "SupportTicket",
+      "description": "Tech support tickets between registered factories and the founder"
+    },
+    "/support_tickets/{ticketId}/messages/{messageId}": {
+      "schema": "SupportTicketMessage",
+      "description": "Conversation messages within a tech support ticket"
+    },
+    "/audit_logs/{logId}": {
+      "schema": "FounderAuditLog",
+      "description": "Administrative action audit trail"
+    },
+    "/platform_settings/{settingId}": {
+      "schema": "PlatformSettings",
+      "description": "Global platform configuration controlled by the founder"
+    }
+  }
+}
